@@ -131,3 +131,93 @@ class BacktestEngine:
     def plot(self, **kwargs):
         """Plot the backtest results."""
         self.cerebro.plot(**kwargs)
+
+    def add_optimization_strategy(self, strategy_class, **param_ranges):
+        """
+        Add a strategy for parameter optimization.
+
+        Args:
+            strategy_class: Strategy class to optimize
+            **param_ranges: Parameter ranges for optimization
+                Example: fast_period=range(5, 20), slow_period=range(25, 50)
+        """
+        self.cerebro.optstrategy(strategy_class, **param_ranges)
+
+    def run_optimization(self) -> list:
+        """
+        Run parameter optimization.
+
+        Returns:
+            List of optimization results with parameters and metrics
+        """
+        print(f'Starting Parameter Optimization...')
+        print(f'Initial Cash: {self.initial_cash:.2f}')
+
+        # Run optimization (optreturn=False to get full strategy objects)
+        opt_results = self.cerebro.run(optreturn=False)
+
+        print(f'\nOptimization completed. Tested {len(opt_results)} parameter combinations.')
+
+        # Extract results
+        results_data = []
+        for result in opt_results:
+            strat = result[0]
+
+            # Extract parameters
+            params = {
+                'fast_period': strat.params.fast_period,
+                'slow_period': strat.params.slow_period,
+            }
+
+            # Extract analyzer data
+            metrics = {}
+
+            # Get final portfolio value from broker
+            if hasattr(strat, 'broker'):
+                final_value = strat.broker.getvalue()
+                metrics['final_value'] = final_value
+                metrics['total_return'] = ((final_value - self.initial_cash) / self.initial_cash) * 100
+            else:
+                metrics['final_value'] = self.initial_cash
+                metrics['total_return'] = 0
+
+            if hasattr(strat, 'analyzers'):
+                analyzers = strat.analyzers
+
+                # Sharpe Ratio
+                if hasattr(analyzers, 'sharpe'):
+                    try:
+                        sharpe_analysis = analyzers.sharpe.get_analysis()
+                        metrics['sharpe_ratio'] = sharpe_analysis.get('sharperatio', None)
+                    except:
+                        metrics['sharpe_ratio'] = None
+
+                # DrawDown
+                if hasattr(analyzers, 'drawdown'):
+                    try:
+                        dd_analysis = analyzers.drawdown.get_analysis()
+                        metrics['max_drawdown'] = dd_analysis.get('max', {}).get('drawdown', None)
+                    except:
+                        metrics['max_drawdown'] = None
+
+                # Trade Analysis
+                if hasattr(analyzers, 'trades'):
+                    try:
+                        trade_analysis = analyzers.trades.get_analysis()
+                        metrics['total_trades'] = trade_analysis.get('total', {}).get('total', 0)
+                        metrics['won_trades'] = trade_analysis.get('won', {}).get('total', 0)
+
+                        if metrics['total_trades'] > 0:
+                            metrics['win_rate'] = (metrics['won_trades'] / metrics['total_trades']) * 100
+                        else:
+                            metrics['win_rate'] = 0
+                    except:
+                        metrics['total_trades'] = 0
+                        metrics['win_rate'] = 0
+
+            results_data.append({
+                'params': params,
+                'metrics': metrics
+            })
+
+        return results_data
