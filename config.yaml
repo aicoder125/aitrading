@@ -1,0 +1,27 @@
+# AI Trading System Configuration
+
+# Backtesting Settings
+backtest:
+  initial_cash: 100000.0
+  commission: 0.001  # 0.1%
+  slippage: 0.0
+  stake: 100  # Shares per trade
+
+# Interactive Brokers Settings
+ibkr:
+  host: "127.0.0.1"
+  port: 7497  # 7497 for paper trading, 7496 for live trading
+  client_id: 1
+  account: null  # Your IBKR account number (optional)
+
+# Data Settings
+data:
+  default_source: "yahoo"
+  cache_enabled: true
+  cache_dir: "data/cache"
+
+# Logging Settings
+log:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_dir: "logs"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
